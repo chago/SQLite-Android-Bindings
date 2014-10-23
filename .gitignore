@@ -1,5 +1,6 @@
 /gen/
 /bin/
+/.externalToolBuilders/
 
 .project
 .classpath
