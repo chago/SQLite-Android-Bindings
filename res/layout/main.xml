@@ -23,7 +23,7 @@
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:onClick="run_my_test"
+            android:onClick="run_my_test_sqlite"
             android:text="Open My Test" />
 
         <TextView
