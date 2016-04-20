@@ -218,30 +218,6 @@ public class CustomSqlite extends Activity
     db.close();
   }
 
-  public void csr_test_1() throws Exception {
-    SQLiteDatabase.deleteDatabase(DB_PATH);
-    SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(DB_PATH, null);
-    String res = "";
-
-    db.execSQL("CREATE TABLE t1(x)");
-    db.execSQL("INSERT INTO t1 VALUES ('one'), ('two'), ('three')");
-    
-    Cursor c = db.rawQuery("SELECT x FROM t1", null);
-    if( c!=null ){
-      boolean bRes;
-      for(bRes=c.moveToFirst(); bRes; bRes=c.moveToNext()){
-        String x = c.getString(0);
-        res = res + "." + x;
-      }
-    }else{
-      test_warning("csr_test_1", "c==NULL");
-    }
-    test_result("csr_test_1.1", res, ".one.two.three");
-
-    db.close();
-    test_result("csr_test_1.2", db_is_encrypted(), "unencrypted");
-  }
-
   public String string_from_t1_x(SQLiteDatabase db){
     String res = "";
 
@@ -253,6 +229,52 @@ public class CustomSqlite extends Activity
     }
 
     return res;
+  }
+
+  public void csr_test_1() throws Exception {
+    SQLiteDatabase.deleteDatabase(DB_PATH);
+    SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(DB_PATH, null);
+    String res = "";
+
+    db.execSQL("CREATE TABLE t1(x)");
+    db.execSQL("INSERT INTO t1 VALUES ('one'), ('two'), ('three')");
+    
+    res = string_from_t1_x(db);
+    test_result("csr_test_1.1", res, ".one.two.three");
+
+    db.close();
+    test_result("csr_test_1.2", db_is_encrypted(), "unencrypted");
+  }
+
+  public void stmt_jrnl_test_1() throws Exception {
+    SQLiteDatabase.deleteDatabase(DB_PATH);
+    SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(DB_PATH, null);
+    String res = "";
+
+    db.execSQL("CREATE TABLE t1(x, y UNIQUE)");
+    db.execSQL("BEGIN");
+      db.execSQL("INSERT INTO t1 VALUES(1, 1), (2, 2), (3, 3)");
+      db.execSQL("UPDATE t1 SET y=y+3");
+    db.execSQL("COMMIT");
+    db.close();
+    test_result("stmt_jrnl_test_1.1", "did not crash", "did not crash");
+  }
+
+
+  public void supp_char_test_1() throws Exception {
+    SQLiteDatabase.deleteDatabase(DB_PATH);
+    SQLiteDatabase db = SQLiteDatabase.openOrCreateDatabase(DB_PATH, null);
+    String res = "";
+    String smiley = new String( Character.toChars(0x10000) );
+
+    db.execSQL("CREATE TABLE t1(x)");
+    db.execSQL("INSERT INTO t1 VALUES ('a" + smiley + "b')");
+
+    res = string_from_t1_x(db);
+    
+    test_result("supp_char_test1." + smiley, res, ".a" + smiley + "b");
+
+    db.close();
   }
 
   /*
@@ -321,6 +343,22 @@ public class CustomSqlite extends Activity
   } 
 
   /*
+  ** Check that SQLiteOpenHelper works.
+  */
+  public void helper_test_1() throws Exception {
+    /* SQLiteDatabase.deleteDatabase(DB_PATH); */
+
+    MyHelper helper = new MyHelper(this);
+    SQLiteDatabase db = helper.getWritableDatabase();
+    db.execSQL("INSERT INTO t1 VALUES ('x'), ('y'), ('z')");
+
+    String res = string_from_t1_x(db);
+    test_result("helper.1", res, ".x.y.z");
+
+    helper.close();
+  }
+
+  /*
   ** If this is a SEE build, check that SQLiteOpenHelper still works.
   */
   public void see_test_2() throws Exception {
@@ -346,11 +384,10 @@ public class CustomSqlite extends Activity
     test_result("see_test_2.5", db_is_encrypted(), "encrypted");
   }
 
-
   public void run_the_tests(View view){
     System.loadLibrary("sqliteX");
     DB_PATH = getApplicationContext().getDatabasePath("test.db");
-    DB_PATH.mkdirs();
+    DB_PATH.getParentFile().mkdirs();
 
     myTV.setText("");
     myNErr = 0;
@@ -358,12 +395,15 @@ public class CustomSqlite extends Activity
 
     try {
       report_version();
+      helper_test_1();
+      supp_char_test_1();
       csr_test_1();
       csr_test_2();
       thread_test_1();
       thread_test_2(); 
       see_test_1();
       see_test_2();
+      stmt_jrnl_test_1();
 
       myTV.append("\n" + myNErr + " errors from " + myNTest + " tests\n");
     } catch(Exception e) {
